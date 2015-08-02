@@ -253,8 +253,10 @@ int main(int argc, char **argv) {
   FILE *fout = fopen("output_itemsets.txt","w");
   for (int i = 0; i < N - 2; ++i) {
     for (int j = 0; j < N - 2; ++j) {
-      fprintf(fout, "[%d, %d] = %d (ref: %d)\n",
-              i, j, output_itemsets[i*N + j], reference[i*N+j]);
+      fprintf(fout, "[%d, %d] = %d", i, j, output_itemsets[i*N + j]);
+      if (i != 0 && j != 0) {
+        fprintf(fout, " (ref: %d)\n", reference[i*N+j]);
+      }
     }
   }
   fclose(fout);
