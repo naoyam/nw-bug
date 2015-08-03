@@ -7,7 +7,9 @@
 
 #include "opencl_util.h"
 
-#define BLOCK_SIZE 16
+#ifndef BLOCK_SIZE
+#define BLOCK_SIZE 4
+#endif
 
 //global variables
 
@@ -136,15 +138,38 @@ void init_input_matrices(int *reference, int *input_itemsets,
   
 }
 
+static int maximum(int a, int b, int c) {
+  int k = a >= b ? a : b;
+  k = k >= c ? k : c;
+  return k;
+}
+
+static void nw_ref(int *reference,
+                   int *input_itemsets,
+                   int N, int penalty) {
+  for (int j = 1; j < N; ++j) {
+    for (int i = 1; i < N; ++i) {
+      int index = i + j * N;
+      int diag = input_itemsets[index - N - 1];
+      int left = input_itemsets[index - 1];
+      int above = input_itemsets[index - N];
+      int v = maximum(diag + reference[index],
+                      left - penalty,
+                      above - penalty);
+      input_itemsets[index] = v;
+    }
+  }
+}
+
 int main(int argc, char **argv) {
-  int N = 32;
+  int N = 8;
   int penalty = 10;
   
   if (argc == 2) {
     N = atoi(argv[1]);
-    assert(N % 16 == 0);
   } 
-
+  assert((N % BLOCK_SIZE) == 0);
+  
   ++N;
   int NN = N*N;
 
@@ -249,15 +274,42 @@ int main(int argc, char **argv) {
 
   printf("Computation done\n");
   printf("==============================================================\n");
-        
-  FILE *fout = fopen("output_itemsets.txt","w");
-  for (int i = 0; i < N - 2; ++i) {
-    for (int j = 0; j < N - 2; ++j) {
-      fprintf(fout, "[%d, %d] = %d", i, j, output_itemsets[i*N + j]);
-      if (i != 0 && j != 0) {
-        fprintf(fout, " (ref: %d)\n", reference[i*N+j]);
+  printf("Validating result\n");
+  int *cpu_result = (int*)malloc(NN * sizeof(int));
+  memcpy(cpu_result, input_itemsets, NN * sizeof(int));
+  nw_ref(reference, cpu_result, N, penalty);
+  int num_errors = 0;
+  for (int j = 0; j < N; ++j) {
+    for (int i = 0; i < N; ++i) {
+      int index = i+j*N;
+      if (cpu_result[index] != output_itemsets[index]) {
+        printf("Error detected at (%d, %d). CPU: %d, FPGA: %d\n",
+               i, j, cpu_result[index], output_itemsets[index]);
+        ++num_errors;
       }
     }
+  }
+
+  if (num_errors == 0) {
+    printf("Successfully validated.\n");
+  } else {
+    printf("%d errors detected.\n", num_errors);
+  }
+  
+  FILE *fout = fopen("output_itemsets.txt","w");
+  for (int j = 0; j < N; ++j) {
+    fprintf(fout, "%3d", output_itemsets[j*N]);    
+    for (int i = 1; i < N; ++i) {
+      if (j == 0) {
+        fprintf(fout, ", %8d", output_itemsets[j*N + i]);
+      } else {
+        fprintf(fout, ", %3d", output_itemsets[j*N + i]);        
+      }
+      if (i != 0 && j != 0) {
+        fprintf(fout, " (%2d)", reference[j*N+i]);
+      }
+    }
+    fprintf(fout, "\n");
   }
   fclose(fout);
   printf("Output itemsets saved in output_itemsets.txt\n");

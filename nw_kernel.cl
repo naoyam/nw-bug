@@ -1,5 +1,5 @@
 #ifndef BLOCK_SIZE
-#define BLOCK_SIZE (16)
+#define BLOCK_SIZE (4)
 #endif
 
 int maximum(int a, int b, int c) {

@@ -32,5 +32,8 @@ Just run the compiled binary as:
 ./nw
 ```
 
-It should create file output_itemsets.txt. Validate the result by
-comparing the file with reference_output_itemsets.txt.
+The program should valiate the result and display whether the result
+is correct or not. It also saves the result in output_itemsets.txt.
+
+
+
