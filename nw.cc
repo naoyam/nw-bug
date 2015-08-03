@@ -279,12 +279,12 @@ int main(int argc, char **argv) {
   memcpy(cpu_result, input_itemsets, NN * sizeof(int));
   nw_ref(reference, cpu_result, N, penalty);
   int num_errors = 0;
-  for (int j = 0; j < N; ++j) {
-    for (int i = 0; i < N; ++i) {
-      int index = i+j*N;
+  for (int row = 0; row < N; ++row) {
+    for (int col = 0; col < N; ++col) {
+      int index = col+row*N;
       if (cpu_result[index] != output_itemsets[index]) {
         printf("Error detected at (%d, %d). CPU: %d, FPGA: %d\n",
-               i, j, cpu_result[index], output_itemsets[index]);
+               row, col, cpu_result[index], output_itemsets[index]);
         ++num_errors;
       }
     }
