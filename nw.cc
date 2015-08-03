@@ -55,7 +55,11 @@ static int initialize() {
   cl_context_properties ctxprop[3];
 
   display_device_info(&platforms, &platformCount);
+#ifdef ALTERA_CL
+  device_type = CL_DEVICE_TYPE_ACCELERATOR;
+#else
   select_device_type(platforms, &platformCount, &device_type);
+#endif
   validate_selection(platforms, &platformCount, ctxprop, &device_type);
 	
   // create OpenCL context
@@ -110,6 +114,7 @@ void usage(int argc, char **argv) {
 
 void init_input_matrices(int *reference, int *input_itemsets,
                          int N, int penalty) {
+  ++N;
   //initialization 
   for (int i = 0 ; i < N; i++){
     for (int j = 0 ; j < N; j++){
@@ -127,11 +132,11 @@ void init_input_matrices(int *reference, int *input_itemsets,
   
   for (int i = 1 ; i < N; i++){
     for (int j = 1 ; j < N; j++){
-      reference[i*N+j] = blosum62[input_itemsets[i*N]][input_itemsets[j]];      
+      reference[i*(N)+j] = blosum62[input_itemsets[i*(N)]][input_itemsets[j]];      
     }
   }
 
-  for( int i = 1; i< N ; i++)
+  for( int i = 1; i< N; i++)
     input_itemsets[i*N] = -i * penalty;
   for( int j = 1; j< N ; j++)
     input_itemsets[j] = -j * penalty;
@@ -147,6 +152,7 @@ static int maximum(int a, int b, int c) {
 static void nw_ref(int *reference,
                    int *input_itemsets,
                    int N, int penalty) {
+  ++N;
   for (int j = 1; j < N; ++j) {
     for (int i = 1; i < N; ++i) {
       int index = i + j * N;
@@ -169,16 +175,13 @@ int main(int argc, char **argv) {
     N = atoi(argv[1]);
   } 
   assert((N % BLOCK_SIZE) == 0);
-  
-  ++N;
-  int NN = N*N;
+  int NP = N+1;
 
-  int *reference = (int *)alignedMalloc( NN * sizeof(int) );
-  int *input_itemsets = (int *)alignedMalloc( NN * sizeof(int) );
-  int *output_itemsets = (int *)alignedMalloc( NN * sizeof(int) );
+  int *reference = (int *)malloc(NP * NP * sizeof(int) );
+  int *input_itemsets = (int *)malloc(NP * NP * sizeof(int) );
+  int *output_itemsets = (int *)malloc(NP * NP * sizeof(int) );
 
   init_input_matrices(reference, input_itemsets, N, penalty);
-  
 
 #ifdef ALTERA_CL
   std::string kernel_file_path = "nw_kernel.aocx";
@@ -230,26 +233,26 @@ int main(int argc, char **argv) {
 	
   // creat buffers
   cl_mem input_itemsets_d = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                           NN * sizeof(int), NULL, &err );
+                                           NP * NP * sizeof(int), NULL, &err );
   if(err != CL_SUCCESS) {
-    fprintf(stderr, "ERROR: clCreateBuffer input_item_set (size:%d) => %d\n", NN, err);
+    fprintf(stderr, "ERROR: clCreateBuffer input_item_set (size:%d) => %d\n", NP*NP, err);
     exit(1);
   }
   cl_mem reference_d	 = clCreateBuffer(context, CL_MEM_READ_WRITE,
-                                          NN * sizeof(int), NULL, &err );
+                                          NP * NP * sizeof(int), NULL, &err );
   if(err != CL_SUCCESS) {
-    fprintf(stderr, "ERROR: clCreateBuffer reference (size:%d) => %d\n", NN, err);
+    fprintf(stderr, "ERROR: clCreateBuffer reference (size:%d) => %d\n", NP*NP, err);
     exit(1);
   }
 	
   //write buffers
   CL_SAFE_CALL(clEnqueueWriteBuffer(cmd_queue,
                                     input_itemsets_d, 1,
-                                    0, NN * sizeof(int),
+                                    0, NP * NP * sizeof(int),
                                     input_itemsets, 0, 0, 0));
   CL_SAFE_CALL(clEnqueueWriteBuffer(cmd_queue,
                                     reference_d, 1, 0,
-                                    NN * sizeof(int),
+                                    NP * NP * sizeof(int),
                                     reference, 0, 0, 0));
         
   clSetKernelArg(kernel1, 0, sizeof(void *), (void*) &reference_d);
@@ -258,7 +261,11 @@ int main(int argc, char **argv) {
   clSetKernelArg(kernel1, 3, sizeof(cl_int), (void*) &N);
   clSetKernelArg(kernel1, 4, sizeof(cl_int), (void*) &penalty);
 
-  int nb = (N - 1)  / BLOCK_SIZE;
+
+  printf("==============================================================\n");
+  printf("Start computation\n");  
+
+  int nb = N  / BLOCK_SIZE;
   for (int by = 0; by < nb; ++by) {
     for (int bx = 0; bx < nb; ++bx) {
       clSetKernelArg(kernel1, 5, sizeof(cl_int), (void*) &bx);
@@ -269,19 +276,19 @@ int main(int argc, char **argv) {
   clFinish(cmd_queue);
 
   err = clEnqueueReadBuffer(cmd_queue, input_itemsets_d, 1, 0,
-                            NN * sizeof(int), output_itemsets, 0, 0, 0);
+                            NP * NP * sizeof(int), output_itemsets, 0, 0, 0);
   clFinish(cmd_queue);
 
   printf("Computation done\n");
   printf("==============================================================\n");
   printf("Validating result\n");
-  int *cpu_result = (int*)malloc(NN * sizeof(int));
-  memcpy(cpu_result, input_itemsets, NN * sizeof(int));
+  int *cpu_result = (int*)malloc(NP * NP * sizeof(int));
+  memcpy(cpu_result, input_itemsets, NP * NP * sizeof(int));
   nw_ref(reference, cpu_result, N, penalty);
   int num_errors = 0;
-  for (int row = 0; row < N; ++row) {
-    for (int col = 0; col < N; ++col) {
-      int index = col+row*N;
+  for (int row = 0; row < NP; ++row) {
+    for (int col = 0; col < NP; ++col) {
+      int index = col+row*NP;
       if (cpu_result[index] != output_itemsets[index]) {
         printf("Error detected at (%d, %d). CPU: %d, FPGA: %d\n",
                row, col, cpu_result[index], output_itemsets[index]);
@@ -297,16 +304,16 @@ int main(int argc, char **argv) {
   }
   
   FILE *fout = fopen("output_itemsets.txt","w");
-  for (int j = 0; j < N; ++j) {
-    fprintf(fout, "%3d", output_itemsets[j*N]);    
-    for (int i = 1; i < N; ++i) {
+  for (int j = 0; j < NP; ++j) {
+    fprintf(fout, "%3d", output_itemsets[j*NP]);    
+    for (int i = 1; i < NP; ++i) {
       if (j == 0) {
-        fprintf(fout, ", %8d", output_itemsets[j*N + i]);
+        fprintf(fout, ", %8d", output_itemsets[j*NP + i]);
       } else {
-        fprintf(fout, ", %3d", output_itemsets[j*N + i]);        
+        fprintf(fout, ", %3d", output_itemsets[j*NP + i]);        
       }
       if (i != 0 && j != 0) {
-        fprintf(fout, " (%2d)", reference[j*N+i]);
+        fprintf(fout, " (%2d)", reference[j*NP+i]);
       }
     }
     fprintf(fout, "\n");
