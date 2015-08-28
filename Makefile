@@ -22,9 +22,15 @@ endif
 nw: nw.cc
 	$(CXX) nw.cc $(INC) $(LIB) $(CXXFLAGS) $(LDFLAGS) -o nw
 
+ifdef VOLATILE
+	AOC_CFLAGS += -DVOLATILE=volatile
+endif
+
 nw_kernel.aocx: nw_kernel.cl
 	aoc nw_kernel.cl $(AOC_CFLAGS)
 
+#nw_kernel_volatile.aocx: nw_kernel_volatile.cl
+#	aoc nw_kernel_volatile.cl $(AOC_CFLAGS)
 
 clean:
 	$(RM) -rf nw *.o *.aocx *.aoco nw_kernel

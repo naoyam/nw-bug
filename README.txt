@@ -36,4 +36,6 @@ The program should valiate the result and display whether the result
 is correct or not. It also saves the result in output_itemsets.txt.
 
 
+# Bugs
 
+Specifying "volatile" to input_itemsets solves the problem. The cache system of the FPGA seems to have some problems.

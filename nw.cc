@@ -238,6 +238,14 @@ int main(int argc, char **argv) {
     fprintf(stderr, "ERROR: clCreateBuffer input_item_set (size:%d) => %d\n", NP*NP, err);
     exit(1);
   }
+#if 0  
+  cl_mem output_itemsets_d = clCreateBuffer(context, CL_MEM_READ_WRITE,
+                                            NP * NP * sizeof(int), NULL, &err );
+  if(err != CL_SUCCESS) {
+    fprintf(stderr, "ERROR: clCreateBuffer input_item_set (size:%d) => %d\n", NP*NP, err);
+    exit(1);
+  }
+#endif  
   cl_mem reference_d	 = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                           NP * NP * sizeof(int), NULL, &err );
   if(err != CL_SUCCESS) {
@@ -250,6 +258,12 @@ int main(int argc, char **argv) {
                                     input_itemsets_d, 1,
                                     0, NP * NP * sizeof(int),
                                     input_itemsets, 0, 0, 0));
+#if 0  
+  CL_SAFE_CALL(clEnqueueWriteBuffer(cmd_queue,
+                                    output_itemsets_d, 1,
+                                    0, NP * NP * sizeof(int),
+                                    input_itemsets, 0, 0, 0));
+#endif  
   CL_SAFE_CALL(clEnqueueWriteBuffer(cmd_queue,
                                     reference_d, 1, 0,
                                     NP * NP * sizeof(int),

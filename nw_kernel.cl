@@ -85,10 +85,11 @@ nw_kernel1(__global int* restrict reference,
   emulation, the cause of the error may be related to pipelining of
   the loop. 
  */
+
 __kernel void
-nw_kernel1(__global int VOLATILE * restrict reference, 
-           __global int VOLATILE * restrict input_itemsets,
-           __global int VOLATILE * restrict output_itemsets,           
+nw_kernel1(__global int * restrict reference, 
+           __global int volatile * restrict input_itemsets,
+           __global int * restrict output_itemsets,           
            int N,
            int penalty,
            int block_col_idx, int block_row_idx) 
